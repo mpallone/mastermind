@@ -1,0 +1,715 @@
+% Maybe try two-column format?
+
+\documentclass[11pt,twocolumn]{article}
+\usepackage[margin=2.54cm]{geometry}
+\usepackage{verbatim} % for comment environments
+\usepackage{setspace} % for double spacing
+\usepackage{amsmath,amssymb}
+%\usepackage{pgf,tikz} % for drawing trees
+
+% unfamiliar packages used for accents
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+
+\begin{document}
+
+\title{Scaling Temporel \& Kovacs' Stochastic Hill Climbing Algorithm for Mastermind}
+\date{December 17, 2011}
+\author{Mark Pallone (\tt markpa1@umbc.edu\rm) \and Max Spector (\tt mspecto1@umbc.edu\rm)}
+
+\maketitle
+
+%\begin{titlepage}
+
+%\begin{center}
+
+
+
+% Upper part of the page  
+%\textsc{\LARGE University of Maryland, Baltimore County}\\[1.5cm]
+
+%\textsc{\Large Introduction to Artificial Intelligence}\\[0.5cm]                    % EDIT HERE
+
+%% Title
+%\HRule \\[0.4cm]
+%{ \huge \bfseries Mastermind Design}\\[0.4cm]           % EDIT HERE
+
+%\HRule \\[1.5cm]
+
+% Author and supervisor
+%\begin{minipage}{0.4\textwidth}
+%\begin{flushleft} \large
+%\emph{Authors:}\\
+%Max \textsc{Spector}\\
+%Mark \textsc{Pallone}
+%\end{flushleft}
+%\end{minipage}
+%\begin{minipage}{0.4\textwidth}
+%\begin{flushright} \large
+%\emph{Instructor:} \\
+%Dr. Marie \textsc{desJardins}                                    % EDIT HERE
+%\end{flushright}
+%\end{minipage}
+%\vfill
+%% Bottom of the page
+%{\large \today}
+%\end{center}
+%\end{titlepage}
+
+\section{Abstract}
+
+The strategy game \em Mastermind \rm requires that one player guess another player's secret code based on limited feedback in between guesses until the code is discovered. Many computer scientists have presented different algorithms for playing \em Mastermind\rm, including Alexandre Temporel and Tim Kovacs' stochastic hill climbing algorithm. Here, we present changes to this approach that allow the algorithm to work in larger problem spaces while still maintaining the effectiveness of its heuristics.
+
+\section{Introduction}
+
+\em Mastermind\rm, invented in 1970-1971 by Mordecai Meirowitz, specifies two roles---a code maker and a code breaker. 
+
+The code maker must create a sequence $G$ of $n_c$ colors from a set containing $k$ colors: $C = \{ c_1, c_2, ..., c_{k} \}$. Duplicate colors are allowed and order matters (\em e.g.\rm, $G_1 = \{c_1, c_1, c_2, c_2\} \neq G_2 = \{ c_2, c_2, c_1, c_1\}$, but both are valid guesses ).
+
+The code breaker is aware of the length of the sequence $n_c$ as well as the pool of possible colors $C$. She guesses until the code maker indicates that she has broken the code. After each guess, the code maker reveals how many elements of the sequence are the correct color and in the correct position, as well as how many elements are the correct color but in the incorrect position (these two amounts are hereafter referred to as $reds$ and $whites$, respectively). 
+
+A common game size is $n_c = 4$ and $k = 6$ (4x6). For reasons soon to be revealed, we consider game sizes of 4x6, 5x7, 6x8, 7x8, and 8x8. 
+
+\section{Background}
+
+We read several articles on different approaches to playing \em Mastermind:\rm 
+
+\begin{itemize}
+\item Investigations into the Master Mind Board Game\footnote{\tt http://www.tnelson.demon.co.uk/mastermind/ \rm}
+\item Solving Mastermind Using Genetic Algorithms\footnote{\tt http://www.springerlink.com/content/\\2acvhpxa9cuvde6y/ \rm}
+\item Efficient solutions for Mastermind using genetic algorithms\footnote{\tt http://www.scribd.com/doc/36268449/Efficient\\-Solutions-for-Mastermind-Using-\\Genetic-Algorithms-2008 \rm}
+\item Mastermind Game\footnote{\tt http://delphiforfun.org/Programs/mastermind.htm \rm}
+\item A heuristic hill climbing algorithm for Mastermind\footnote{\tt http://www.cs.bris.ac.uk/Publications/\\pub\_master.jsp?id= 2000067 \rm}
+\end{itemize}
+
+This reading in addition to an informal survey of University of Maryland, Baltimore County computer science students indicated that genetic approaches to \em Mastermind \rm had already been done with fair success on larger-than-standard problem sizes. 
+
+Temporel and Kovacs' heuristic hill climbing algorithm did not indicate how well the algorithm scaled in extremely large problem sizes. The unexplored nature of their approach as well as their interesting and novel algorithm led us to choose their stochastic hill climbing solution as the basis for our exploration.
+
+\section{Mathematical Background}
+
+There are several technical details guiding both our approach and the analysis of our results. 
+
+The number of possible secret codes given length $n_c$ and the number of potential colors $k$ is $k^{n_c}$. Hence, the standard 4x6 game has $1,296$ possible codes and an 8x8 game has $16,777,216$ possible codes.
+
+Temporel and Kovacs' suggest a scoring function based on $reds$ and $whites$: 
+
+\begin{itemize}
+\item $reds = 0, whites = 0 \Rightarrow score = 0$
+\item $reds = 0, whites = 1 \Rightarrow score = 1$
+\item $reds = 1, whites = 0 \Rightarrow score = 2$
+\item $reds = 0, whites = 2 \Rightarrow score = 3$
+\item $reds = 1, whites = 1 \Rightarrow score = 4$
+\item etc. 
+\end{itemize}
+
+Constructing a table of scores based on $reds$ and $whites$ reveals a formula for this calculation: \\
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\bf & \bf $reds$ = 0 & \bf 1 &\bf  2 &\bf  3 &\bf  4 \rm \\
+\hline
+\bf $whites$ = 0 \rm & 0 & 2 & 5 & 9 & 14\\
+\hline
+\bf 1 \rm & 1 & 4 & 8 & 13 & 19\\
+\hline
+\bf 2 \rm & 3 & 7 & 12 & 18 & 25\\
+\hline
+\bf 3 \rm & 6 & 11 & 17 & 24 & 32\\
+\hline
+\bf 4 \rm & 10 & 16 & 23 & 31 & 40\\
+\hline
+\end{tabular}\\
+\end{center}
+
+Noting that:
+
+\begin{itemize}
+\item The numbers in column $reds=0$ are triangular numbers, 
+\item the difference between two horizontally adjacent cells increases by 1 as one moves to the right across the table, and
+\item the $n$th triangular number is equal to $\dfrac{n^2 + n}{2}$,
+\end{itemize}
+
+we found that the score based on $reds$ and $whites$ can be calculated in constant time based on the formula 
+\begin{align*}
+score &= \dfrac{whites^2+whites}{2} + (reds)(whites)\\
+&+ \dfrac{reds^2+reds}{2} + reds
+\end{align*}
+
+\section{Temporel and Kovacs' Algorithm}
+
+\subsection{Commutative Requirement}
+
+Scores in \em Mastermind \rm are \em commutative; \rm a guess scored against a secret code will receive the same number of $reds$ and $whites$ as the secret code scored against that guess. 
+
+An essential part of Temporel and Kovacs' algorithm is using this observation to ensure future guesses are consistent with old guesses. Each new guess that is generated is scored against each previous guess. If the $reds$ and $whites$ received does not match what the old guess received when it was scored against the actual secret code, then the new guess is thrown away and another one is generated.
+
+This consistency check reduces the number of guesses that can be submitted, especially as the number of previous guesses grows. However, it can take a very long time to generate a guess that is consistent with every single previous guess, because the search space does not shrink.
+
+\subsection{Algorithm Overview}
+
+Any time a guess is created, it is checked against a hash table of previously generated guesses to ensure that duplicate guesses are not wastefully considered. If a newly generated guess is not in the hash table, then it is added.
+
+If a guess receives a score of 0, then the colors in that guess are not used in any future guesses. 
+
+The Temporel and Kovacs algorithm works according to the following pseudocode: 
+
+\begin{verbatim}
+submit a guess to the code maker, and 
+consider it the Current Favorite 
+Guess (CFG)
+
+while the guess is not correct:
+
+  create a new guess by calling 
+  GENERATE-VALID-GUESS (which is 
+  detailed in the following section)
+
+  submit that guess to the code
+  maker
+   
+  if this guess scores at least as
+  good as the CFG, then consider
+  it the new CFG   
+\end{verbatim}
+
+\subsection{The GENERATE-VALID-GUESS Function}
+
+\tt GENERATE-VALID-GUESS \rm creates guesses by rearranging and probabilistically assigning colors based on the CFG and its score:
+
+\begin{verbatim}
+create a copy of the CFG 
+
+for each red the CFG received,
+choose an element to keep the 
+same
+
+for each white the CFG received,
+choose a non-red element and 
+change its location
+
+for each remaining peg, 
+probabilistically assign a new
+color based on the CFG (a 
+color in the CFG has a higher
+probability of being chosen)
+\end{verbatim}
+
+\subsection{Color Probability Calculation}
+
+Temporel and Kovacs present a system for modifying color probability based on the current favorite guess and the colors that are already present in the new generated guess after the red and white indices have been picked as follows:
+\begin{enumerate}
+\item Set all color probabilities to 0.
+\item Add 100 for all colors in the current favorite guess.
+\item Subtract $100-45$ for all colors that are in the red list.
+\item Subtract all of the probabilities from 100 and set any negative results to 1.
+\end{enumerate}
+The value 45 was the same value Temporel and Kovacs' paper presents, and after testing, we also confirmed that a value around 45 was optimal. Furthermore, we found that this value works well on larger problem sizes, including 8x8.
+
+
+\section{System Evaluation}
+
+Our goal was to improve Temporel and Kovacs' algorithm so that it would, at the very least, solve an 8x8 code in a small number of guesses. In addition to the average number of guesses scored and the internal CPU time required to crack the secret code, two additional metrics are considered:
+\begin{itemize}
+\item $guesses$-$evaluated$ : the number of times potential guesses are checked against all previously scored guesses to see if the commutative requirement is satisfied.
+\item $guesses$-$generated$ : the number of times a potential guess is generated by mutating the CFG. 
+\end{itemize}
+
+\subsection{Performance of Temporel and Kovacs' Algorithm}
+
+The number of tests run for each problem size is shown below.\footnote{Due to the very long time it takes for this algorithm to solve problem sizes beyond 6x8, we could only run a few tests on larger problem sizes for the basic implementation of Temporel and Kovac's algorithm. We tried to run 500 tests for each algorithm detailed throughout this paper on each of the 5 problem sizes (4x6, 5x7, 6x8, 7x8, and 8x8), but after a virtual machine allocated 4 GB RAM and 6 2.8 GHz cores running on Mark Pallone's home computer ran for 40 hours, it then gave a SEGMENTATION FAULT error, corrupting the entire virtual machine and leaving no data. Fortunately, we feel that this still shows how incredibly long it takes Temporel and Kovacs' algorithm to solve anything beyond 6x8 and justifies attempts to improve it.}\\ 
+
+Note that these numbers are specific to the basic implementation of the algorithm.
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        & \bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 200   &   &   \\
+\hline
+\bf 5       &       &200&   \\
+\hline
+\bf 6       &       &   &50 \\
+\hline
+\bf 7       &       &   &70 \\
+\hline
+\bf 8       &       &   &30 \\
+\hline
+\end{tabular}\\
+\bf Tests Run\rm\\
+\end{center}
+
+The basic implementation of this algorithm works well in terms of the average number of guesses to reach a solution, $guesses$-$evaluated$, and $guesses$-$generated$:
+
+\begin{center}
+% guesses scored
+\begin{tabular}{|c|c|c|c|}
+\hline
+        & \bf $k= $ 6 & \bf 7 & \bf 8 \\
+\hline
+\bf $n_c = $ 4 & 4.59  &   &   \\
+\hline
+\bf 5       &       &5.49&   \\
+\hline
+\bf 6       &       &   &5.98 \\
+\hline
+\bf 7       &       &   &6.32 \\
+\hline
+\bf 8       &       &   &7.26 \\
+\hline
+\end{tabular}\\
+\bf Average Number of Guesses to Reach Solution \rm\\
+\vspace{.7cm}
+
+% guesses-evaluated
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf  $k= $ 6 & \bf 7 & \bf 8 \\
+\hline
+\bf $n_c = $ 4 & 11.19   &   &   \\
+\hline
+\bf 5       &       &24.84&   \\
+\hline
+\bf 6       &       &   &28.58 \\
+\hline
+\bf 7       &       &   &32.16 \\
+\hline
+\bf 8       &       &   &67.67 \\
+\hline
+\end{tabular}\\
+$guesses$-$evaluated$\\
+\vspace{.7cm}
+
+% TODO change "Avg" to "Average"
+
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 117.42   &   &   \\
+\hline
+\bf 5       &       &1,054.6&   \\
+\hline
+\bf 6       &       &   &4,418.86 \\
+\hline
+\bf 7       &       &   &57,384.36 \\
+\hline
+\bf 8       &       &   &327,141.94 \\
+\hline
+\end{tabular}\\
+$guesses$-$generated$
+\end{center}
+
+However, the algorithm became impractical\footnote{On one 8x8 test it took 3,600 seconds to find a secret code.} to use as $n_c$ and $k$ grew, due to the very large number of seconds it took, on average, to solve 8x8 codes\footnote{In particular, we were aiming to solve 8x8 secret codes in 20 seconds, as this is a requirement to compete in the Fall 2011 CMSC 471 Mastermind Tournament.}:
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf  $k= $ 6 & \bf 7 & \bf 8 \\
+\hline
+\bf $n_c = $ 4 & .04   &   &   \\
+\hline
+\bf 5       &       &.37&   \\
+\hline
+\bf 6       &       &   &8.39 \\
+\hline
+\bf 7       &       &   &32.29 \\
+\hline
+\bf 8       &       &   &146.20 \\
+\hline
+\end{tabular}\\
+
+
+\bf Average Seconds Per Solution  \footnote{As measured on the UMBC GL Machines in Fall 2011 (\tt gl.umbc.edu\rm). These machines have Quad-Core AMD Opteron Processors running at 2.593.646 MHz each, and 13.38 GB RAM (according to their \tt /proc/cpuinfo \rm and \tt /proc/meminfo \rm  files).}\rm
+
+\end{center}
+
+\subsection{Relaxing the Commutative Requirement}
+
+Temporel and Kovacs' algorithm performs a large amount of precomputation before submitting a guess. While this ensures a lower number of guesses on average, it takes a very long time once the search space gets reasonably large---for example, on average, an 8x8 code took 146.20 seconds to solve\footnote{Because of the 20 second time limit for the aforementioned CMSC 471 Fall 2011 Mastermind tournament, this large running time would have disqualified us for even 7x8 problems.}. 
+
+We decided that the best way to limit the time our algorithm takes to run, while still utilizing the commutative requirement to produce good guesses (and therefore quick solutions to problems) was to limit the number of guesses we check for commutative validity before submitting a guess. This is necessary because the size of possible-guess-space on the generation side does not shrink, but the number of guesses that are all commutatively valid shrinks dramatically. Thus, the probability of one of the generated guesses falling into the commutatively valid guess list approaches zero with even 10 previous guesses. However, simply submitting the last guess we generated at the time limit would not yield good results since this guess may still be very far from optimal, and might even be worse than a guess previously checked for commutativity. 
+
+% TODO : make sure all the tables say "average" 
+
+The alternative was to create a heuristic function that can be used to pick the closest matching guess. We created a formula to define this heuristic based on the ``distance'' from previous guesses. Let $d$ be the distance, $bh$ be the basic heuristic function described in section 4, $gr$ and $gw$ be the reds and whites (respectively) generated by comparing the current guess to a previous guess, and $pgr$ and $pgw$ be the reds and whites (respectively) generated by scoring the previous guess against the secret code. Our formula is then: 
+\begin{align*} % TODO it's not clear what some of these numbers are. 
+d &= d + | bh(gr, gw)  - bh(pgr, pgw)|
+\end{align*}
+with the final distance being equivalent to the sum of the distances of each previously scored guess from the current generated guess. 
+
+We also attempted to use a weight function based on the actual heuristic of the guess, in order to encourage ``hill climbing behavior,'' but found that this actually hurt our scores, since it devalued some of the information that we received from the low valued guesses. 
+
+We next ran the code on various sizes and found the optimal number of maximum commutative checks, as summarized here: 
+
+\begin{center}
+\begin{tabular}{| c | c |}
+\hline
+\bf $k$ & \bf Best Constant\\
+\hline
+\bf 4 & 1000\\
+\hline
+\bf 5 & 1400\\
+\hline
+\bf 6 & 1900\\
+\hline
+\bf 7 & 1900\\
+\hline
+\bf 8 & 2200\\
+\hline
+\bf 9 & 2200\\
+\hline
+\bf 10 & 2200\\
+\hline
+\bf 11 & 200\\
+\hline
+\end{tabular}
+\end{center}
+
+Note the sharp reduction from $k=10$ to $k=11$. Even with this change, problems larger than 10x10 still took a very long time to solve, and so the upper limit for the commutativity test was reduced.
+
+This dramatically reduced the amount of time it took to guess an 8x8 puzzle---going from 146.2 average seconds per guess to only 3.6 average seconds per guess\footnote{Which allowed us to compete in the tournament!}. The average number of guesses to crack the code only went up a small amount: from 7.62 on an 8x8 puzzle to 8.2. While this is a 7.1\% increase in the average number of guesses to reach a solution, it is a \em 97.5\% decrease \rm in the time taken to generate each guess.
+
+
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 200   &   &   \\
+\hline
+\bf 5       &       &200&   \\
+\hline
+\bf 6       &       &   &50 \\
+\hline
+\bf 7       &       &   &50 \\
+\hline
+\bf 8       &       &   &50 \\
+\hline
+\end{tabular}\\
+\bf Tests Run\rm\\
+\end{center}
+
+
+\begin{center}
+% guesses scored
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf  $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 4.675  &   &   \\
+\hline
+\bf 5       &       &5.51&   \\
+\hline
+\bf 6       &       &   &6.57 \\
+\hline
+\bf 7       &       &   &7.6 \\
+\hline
+8       &       &   &8.2 \\
+\hline
+\end{tabular}\\
+\bf Average Number of Guesses to Reach Solution \rm\\
+\vspace{.7cm}
+
+% guesses-evaluated
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 69.75   &   &   \\
+\hline
+\bf 5       &       & 456.92  &   \\
+\hline
+\bf 6       &       &   & 1067.84 \\
+\hline
+\bf 7       &       &   &1526.57 \\
+\hline
+\bf 8       &       &   &1607.65 \\
+\hline
+\end{tabular}\\
+$guesses$-$evaluated$
+\end{center}
+
+
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 88.49   &   &   \\
+\hline
+\bf 5       &       & 1159.99&   \\
+\hline
+\bf 6       &       &   & 2709.93 \\
+\hline
+\bf 7       &       &   &1257 \\
+\hline
+\bf 8       &       &   &3962 \\
+\hline
+\end{tabular}\\
+\bf $guesses$-$generated$ \rm
+\end{center}
+
+
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & .052   &   &   \\
+\hline
+\bf 5       &       &.34&   \\
+\hline
+\bf 6       &       &   &1.038 \\
+\hline
+\bf 7       &       &   &1.76 \\
+\hline
+\bf 8       &       &   &3.61 \\
+\hline
+\end{tabular}\\
+\bf Average Seconds Per Solution  \rm
+\end{center}
+
+Since this approach provides a much shorter run time than the basic implementation of Temporel and Kovacs' algorithm, modifications described in sections 6.3 and 6.4 are made to this approach.
+
+\subsection{Punishing Colors that Score Poorly}
+
+Temporel and Kovacs suggest reducing the probabilities of colors in initial or consecutive guesses that score poorly. We generalized this suggestion by punishing any guess that scores less than 14\% of the perfect score for that particular problem size.
+
+The changes were minimal. Very miniscule improvements to the number of guesses guesses to reach a solution and $guesses$-$evaluated$ were observed, whereas a sharp increase in the number of seconds to produce a guess resulted.
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 200   &   &   \\
+\hline
+\bf 5       &       &200&   \\
+\hline
+\bf 6       &       &   &100 \\
+\hline
+\bf 7       &       &   &50 \\
+\hline
+\bf 8       &       &   &50 \\
+\hline
+\end{tabular}\\
+\bf Tests Run\rm\\
+\end{center}
+
+\begin{center}
+% guesses scored
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf  $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 4.67  &   &   \\
+\hline
+\bf 5       &       &5.4&   \\
+\hline
+\bf 6       &       &   &6.9 \\
+\hline
+\bf 7       &       &   &7.58 \\
+\hline
+\bf 8       &       &   &8.18 \\
+\hline
+\end{tabular}\\
+\bf Average Number of Guesses to Reach Solution \rm\\
+\vspace{.7cm}
+
+% guesses-evaluated
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 67.78   &   &   \\
+\hline
+\bf 5       &       & 413.79  &   \\
+\hline
+\bf 6       &       &   & 1121.79 \\
+\hline
+\bf 7       &       &   & 1405.1 \\
+\hline
+\bf 8       &       &   & 1495.56 \\
+\hline
+\end{tabular}\\
+$guesses$-$evaluated$
+\end{center}
+
+
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 90.56   &   &   \\
+\hline
+\bf 5       &       & 1034.74&   \\
+\hline
+\bf 6       &       &   & 3099.71 \\
+\hline
+\bf 7       &       &   & 2068.72 \\
+\hline
+\bf 8       &       &   & 6408.2 \\
+\hline
+\end{tabular}\\
+\bf $guesses$-$generated$ \rm
+\end{center}
+
+
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & .049   &   &   \\
+\hline
+\bf 5       &       & .54&   \\
+\hline
+\bf 6       &       &   & 2.91 \\
+\hline
+\bf 7       &       &   & 5.00 \\
+\hline
+\bf 8       &       &   & 9.32 \\
+\hline
+\end{tabular}\\
+\bf Average Seconds Per Solution  \rm
+\end{center}
+
+
+\subsection{Punishing Guesses that do not Hill Climb}
+
+While punishing colors that score poorly did not give a large guess number advantage, we felt that punishing scores that did did not hill climb (\em i.e., \rm did worse by at least 25\% than the previous guess) would help the guesses converge faster. 
+
+The goal of this ``anti-hill climbing'' punishing system was to have a behavior similar to genetic algorithms in that guesses close to ``bad'' guesses are discouraged. However, unlike the color probability changing system presented in 6.3, anti hill climbing punishing does not decrease the search space, it merely attempts to increase the probability of a better guess. 
+
+We calculate how close a guess was to the bad guesses by maintaining a bad-guess table, and recording a bad-guess heuristic equivalent to the sum of the basic scoring function of the guess with all of the bad guesses. This gave us an unweighted sum of the closeness of the guess to all the bad guesses, with 0 being the farthest away. We then added this bad guess value, multiplied by a weighting constant (we chose 10\%), and added it to the distance value used in part 6.2. While this did help the guess number slightly, the increased cost of the calculation of the bad guess value made our algorithm take many more seconds to arrive at a solution.\footnote{We actually omitted this change from the class tournament, as we would have timed out on at least half of the guesses beyond 8x8.}
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 200 & x   &   &   \\
+\hline
+\bf 5       &       &200&   \\
+\hline
+\bf 6       &       &   &100 \\
+\hline
+\bf 7       &       &   &50 \\
+\hline
+\bf 8       &       &   &50 \\
+\hline
+\end{tabular}\\
+\bf Tests Run\rm\\
+\end{center}
+
+\begin{center}
+% guesses scored
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf  $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 4.63  &   &   \\
+\hline
+\bf 5       &       &5.56&   \\
+\hline
+\bf 6       &       &   &6.77 \\
+\hline
+\bf 7       &       &   &7.56\\
+\hline
+\bf 8       &       &   &8.64 \\
+\hline
+\end{tabular}\\
+\bf Average Number of Guesses to Reach Solution \rm\\
+\vspace{.7cm}
+
+% guesses-evaluated
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 58.96   &   &   \\
+\hline
+\bf 5       &       & 380.67  &   \\
+\hline
+\bf 6       &       &   & 951.06 \\
+\hline
+\bf 7       &       &   & 1291.28 \\
+\hline
+\bf 8       &       &   & 1647.56 \\
+\hline
+\end{tabular}\\
+$guesses$-$evaluated$
+\end{center}
+
+
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & 106.28   &   &   \\
+\hline
+\bf 5       &       & 672.36&   \\
+\hline
+\bf 6       &       &   & 1921.87 \\
+\hline
+\bf 7       &       &   & 1271.82 \\
+\hline
+\bf 8       &       &   & 5082.82 \\
+\hline
+\end{tabular}\\
+\bf $guesses$-$generated$ \rm
+\end{center}
+
+
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+        &\bf $k= $ 6 &\bf 7 &\bf 8 \\
+\hline
+\bf $n_c = $ 4 & .071   &   &   \\
+\hline
+\bf 5       &       & .72&   \\
+\hline
+\bf 6       &       &   &4.03 \\
+\hline
+\bf 7       &       &   & 9.11 \\
+\hline
+\bf 8       &       &   & 20.92 \\
+\hline
+\end{tabular}\\
+\bf Average Seconds Per Solution  \rm
+\end{center}
+
+
+
+
+\section{Conclusion}
+
+Despite our improvements, the algorithm still took a very long time to solve problem sizes greater than 8x8. % elaborate here about how even with Max's approach, the algorithm still took forever.
+
+The strength and weakness of this algorithm is the commutative requirement. Satisfying it, while expensive in terms of time, yields very good guesses. 
+
+Future approaches may wish to find quicker ways to satisfy this requirement. For example, a systematic, rather than stochastic, approach to generating guesses based off of the current favorite  guess may yield a guess satisfying the commutativity requirement more quickly.
+
+\end{document}
+
+% To spell check, type
+% 
+%     ispell -t filename.tex
+%
+% If ispell is not installed, simply type 
+%     
+%     sudo apt-get install ispell

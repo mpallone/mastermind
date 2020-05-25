@@ -1,0 +1,5 @@
+
+
+def basicHeuristic(reds, whites, pegs):
+    if reds + whites > pegs:
+        return 0 # this should never happen.

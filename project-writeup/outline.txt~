@@ -1,0 +1,56 @@
+CMSC 471 Final Report Outline
+-----------------------------
+
+INTRODUCTION
+-what the game is
+-where the game came from
+-how the game is played
+
+BACKGROUND
+-papers we read (with references) 
+-why we chose T&K
+  -everyone seemed to be doing genetic
+  -their algorithm looked interesting, and no indication of it's scalability
+   was presented
+
+TEMPOREL & KOVACS ALGORITHM
+-note that any time a guess is submitted, if it receives a score of 0 then 
+ the colors of that guess are not used in any future guesses.
+-submit a guess, consider it the "current favorite guess" (CFG)
+-while the guess is not correct:
+  -create a new guess based on the score of the previous guess and a list of
+   all previous guesses and the CFG by calling GENERATE-VALID-GUESS
+  -submit this guess to the code maker
+  -if this guess scores at least as good as than the CFG, consider this
+   guess the new CFG
+
+ ---
+  GENERATE-VALID-GUESS
+    -this function uses a hash table to make sure only new guesses are 
+     considered. 
+    
+    -CONSTRUCTING NEW GUESS:
+      -for each red, choose an element in the CFG to keep the same
+      -for each white, choose a non-red color and swap its position
+      -for each remaining peg, probabilistically assign a new color
+       based on the CFG (a color in the CFG has a higher probability
+       of being chosen) 
+THEORETICAL ANALYSIS
+-size of search space
+-mathematical background of basic-heuristic
+-large cost of making sure new guesses are consistent with old guesses
+  -maybe try to come up with some numbers?
+
+EVALUATION OF SYSTEM
+-baseline: T&K
+  -how it performed on various problem sizes
+  -how it scaled very poorly 
+    -scaled poorly because there are very few guesses that can be consistent
+     with old guesses
+  -PERFORMANCE
+    -4x6, 5x7, 6x8, 7x8, 8x8
+    -basic algorithm
+    -max's change
+    -mark's change
+
+

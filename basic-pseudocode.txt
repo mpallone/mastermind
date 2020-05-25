@@ -1,0 +1,69 @@
+;; Basic pseudocode for a generic mastermind guesser.
+;; ==================================================
+
+
+colorPool = copy of the starting color pool
+cfg = rrbb    ;; or whatever, just pick a starting guess. Recall that
+              ;; cfg stands for "current favorite guess". It's the highest
+              ;; scoring guess we've seen so far. 
+prevGuesses = list of previous guesses
+prevConsidered = hash table of generated and considered combinations
+
+reds, whites = mm-score(cfg, *code*, colors)
+return if reds == 4
+add cfg to prevGuesses
+if reds == 0 and whites == 0:
+   remove colors in cfg from the colorPool
+
+while not 4 reds:
+    newGuess = generateValidGuess(cfg, reds, whites, prevGuesses,
+                                                     prevConsidered)
+    add newGuess to prevGuesses
+    
+    newReds, newWhites = mm-score(newGuess, *code*, colors)
+    add newGuess and its red/white score to prevGuesses    
+
+    if newReds == 0 and newWhites == 0:
+        remove colors in newGuess from colorPool  
+
+    if basic-heuristic(newReds, newWhites) > basic-heuristic(reds, whites):
+        cfg = newGuess
+
+;; ============================================================================
+;; FUNCTIONS: 
+
+basic-heuristic() - given reds and whites, return an integer representing the 
+value of that number of reds and whites. The number returned is based on the
+heuristic described in section 3.2 of the Temporel/Kovacs paper.
+
+generateValidGuess() - return a valid guess that is 
+  -a potential solution (eg, it scores the same vs. all the previous guesses)
+  -generated according to the algorithm described in section 3 of the paper. 
+  -This function is composed of two sub-functions: 
+    -generateGuess(cfg, reds, whites, prevGenerated)
+    -isValidGuess(guess, prevGuesses)
+
+  -this function runs like this:
+    guess = generateGuess(cfg, reds, whites, prevConsidered)
+    while not isValidGuess(guess, prevGuesses):
+        guess = generateGuess(cfg, reds, whites, prevConsidered)
+    return guess
+
+
+generateGuess(cfg, reds, whites, prevGenerated, colorPool) - generate a guess 
+based on section 3.1 in the Temporel/Kovacs paper:
+
+1. For each black peg, choose a peg not to change.
+2. For each white peg, swap a peg's position (but don't change any pegs 
+   selected in step 1. 
+3. For all pegs not selected in step 1 or step 2, do:
+   -select a new color based on the 5 steps in section 3.4, allowing only
+   guesses from the colorPool 
+4. See if this new guess exists in prevGenerated. If so, go to step 1 and 
+   generate a new guess. If not, add it to prevGenerated and return it.
+
+
+isValidGuess(guess, prevGuesses) - for each previous guess, see if 'guess'
+scores the same against the previous guess as that previous guess did against
+the actual code we're trying to figure out. 
+
